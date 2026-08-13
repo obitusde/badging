@@ -78,12 +78,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: "PASTE_FIREBASE_API_KEY",
-  authDomain: "PASTE_FIREBASE_AUTH_DOMAIN",
-  projectId: "PASTE_FIREBASE_PROJECT_ID",
-  storageBucket: "PASTE_FIREBASE_STORAGE_BUCKET",
-  messagingSenderId: "PASTE_FIREBASE_MESSAGING_SENDER_ID",
-  appId: "PASTE_FIREBASE_APP_ID"
+  apiKey: "AIzaSyAI7QDajLx4cNY8iU5BD2EQRZY7Li8dsF0",
+  authDomain: "badging-e9359.firebaseapp.com",
+  projectId: "badging-e9359",
+  storageBucket: "badging-e9359.firebasestorage.app",
+  messagingSenderId: "1395544088",
+  appId: "1:1395544088:web:c0bb8595f906a77065736d"
 });
 
 const messaging = firebase.messaging();
