@@ -11,7 +11,7 @@
 // index.html sein (siehe dort für die Firebase-Konsole-Werte).
 // =============================================================
 
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const CACHE_NAME = `royal-oak-${CACHE_VERSION}`;
 const SHELL_FILES = [
   './',
@@ -116,6 +116,26 @@ messaging.onBackgroundMessage((payload) => {
     requireInteraction: true,
     vibrate: [200, 100, 200]
   });
+});
+
+// =============================================================
+// TEMPORÄR — Diagnose: rohes Push-Event unabhängig von Firebase
+// abfangen, um zu sehen ob überhaupt etwas ankommt. Danach wieder
+// entfernen.
+// =============================================================
+self.addEventListener('push', (event) => {
+  let raw = '(kein event.data)';
+  try {
+    raw = event.data ? event.data.text() : '(kein event.data)';
+  } catch (e) {
+    raw = 'Parse-Fehler: ' + e;
+  }
+  event.waitUntil(
+    self.registration.showNotification('RAW PUSH DEBUG', {
+      body: raw,
+      tag: 'raw-push-debug'
+    })
+  );
 });
 
 // =============================================================
