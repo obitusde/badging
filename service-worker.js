@@ -1,17 +1,16 @@
 // =============================================================
 // Royal Oak Arbeitszeit — Service Worker
 // =============================================================
-// App-Shell-Caching plus Firebase Cloud Messaging für echte Push-
+// App-Shell-Caching plus ein "push"-Listener für echte Push-
 // Benachrichtigungen im Hintergrund (Handy gesperrt / App zu).
 // Die Erinnerungs-Logik (wann was geschickt wird) läuft komplett
 // serverseitig in Code.gs (Apps Script) — dieser Service Worker
-// zeigt nur an, was der Server per Push schickt.
-//
-// FIREBASE_CONFIG unten muss identisch zu FIREBASE_CONFIG in
-// index.html sein (siehe dort für die Firebase-Konsole-Werte).
+// zeigt nur an, was der Server per Push schickt. Die eigentliche
+// Registrierung des Push-Tokens (Firebase SDK) passiert in
+// index.html; dieser Worker parst nur die ankommenden Nachrichten.
 // =============================================================
 
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const CACHE_NAME = `royal-oak-${CACHE_VERSION}`;
 const SHELL_FILES = [
   './',
@@ -89,51 +88,31 @@ self.addEventListener('fetch', (event) => {
 });
 
 // =============================================================
-// Firebase Cloud Messaging — Push im Hintergrund entgegennehmen
+// Push-Benachrichtigungen im Hintergrund entgegennehmen
 // =============================================================
-importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
-
-firebase.initializeApp({
-  apiKey: "AIzaSyAI7QDajLx4cNY8iU5BD2EQRZY7Li8dsF0",
-  authDomain: "badging-e9359.firebaseapp.com",
-  projectId: "badging-e9359",
-  storageBucket: "badging-e9359.firebasestorage.app",
-  messagingSenderId: "1395544088",
-  appId: "1:1395544088:web:c0bb8595f906a77065736d"
-});
-
-const messaging = firebase.messaging();
-
-messaging.onBackgroundMessage((payload) => {
-  const title = (payload.data && payload.data.title) || 'Royal Oak Arbeitszeit';
-  const body = (payload.data && payload.data.body) || '';
-  self.registration.showNotification(title, {
-    body: body,
-    icon: './icon-192.png',
-    badge: './icon-192.png',
-    tag: 'badge-reminder',
-    requireInteraction: true,
-    vibrate: [200, 100, 200]
-  });
-});
-
-// =============================================================
-// TEMPORÄR — Diagnose: rohes Push-Event unabhängig von Firebase
-// abfangen, um zu sehen ob überhaupt etwas ankommt. Danach wieder
-// entfernen.
-// =============================================================
+// Bewusst ohne firebase-messaging-compat: dessen interne
+// onBackgroundMessage-Weiche hat unsere Data-Only-Nachrichten
+// verschluckt (bestätigt per Debug-Test), während ein simpler,
+// direkter "push"-Listener zuverlässig funktioniert.
 self.addEventListener('push', (event) => {
-  let raw = '(kein event.data)';
+  let payload = {};
   try {
-    raw = event.data ? event.data.text() : '(kein event.data)';
+    payload = event.data ? event.data.json() : {};
   } catch (e) {
-    raw = 'Parse-Fehler: ' + e;
+    payload = {};
   }
+  const d = payload.data || payload;
+  const title = d.title || 'Royal Oak Arbeitszeit';
+  const body = d.body || '';
+
   event.waitUntil(
-    self.registration.showNotification('RAW PUSH DEBUG', {
-      body: raw,
-      tag: 'raw-push-debug'
+    self.registration.showNotification(title, {
+      body: body,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: 'badge-reminder',
+      requireInteraction: true,
+      vibrate: [200, 100, 200]
     })
   );
 });
