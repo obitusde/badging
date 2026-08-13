@@ -11,7 +11,7 @@
 // index.html sein (siehe dort für die Firebase-Konsole-Werte).
 // =============================================================
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `royal-oak-${CACHE_VERSION}`;
 const SHELL_FILES = [
   './',
