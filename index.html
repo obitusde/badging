@@ -248,13 +248,15 @@ window.addEventListener('load', async () => {
     // (siehe Code.gs). Dafür braucht der Server einen FCM-Gerätetoken.
     if (window.Notification) {
         if (Notification.permission === "granted") {
-            registriereFcmToken();
+            registriereFcmToken().catch((err) => console.warn('FCM-Token-Registrierung fehlgeschlagen:', err));
         } else if (Notification.permission === "default") {
             // Automatischer Versuch beim ersten Laden. Manche Browser
             // unterdrücken das ungefragte Popup — dafür gibt es den
             // "Benachrichtigungen aktivieren"-Button als Fallback.
             Notification.requestPermission().then((permission) => {
-                if (permission === "granted") registriereFcmToken();
+                if (permission === "granted") {
+                    registriereFcmToken().catch((err) => console.warn('FCM-Token-Registrierung fehlgeschlagen:', err));
+                }
             });
         }
     }
@@ -267,8 +269,12 @@ btnNotify.addEventListener('click', async () => {
     }
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
-        await registriereFcmToken();
-        alert("Benachrichtigungen sind aktiviert.");
+        try {
+            await registriereFcmToken();
+            alert("Benachrichtigungen sind aktiviert.");
+        } catch (err) {
+            alert("Push-Registrierung fehlgeschlagen: " + (err.code || err.message || err));
+        }
     } else {
         alert("Benachrichtigungen wurden nicht erlaubt.");
     }
@@ -276,23 +282,19 @@ btnNotify.addEventListener('click', async () => {
 
 async function registriereFcmToken() {
     if (!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.startsWith("PASTE_")) {
-        console.warn('Firebase noch nicht konfiguriert (FIREBASE_CONFIG).');
-        return;
+        throw new Error('Firebase noch nicht konfiguriert (FIREBASE_CONFIG).');
     }
-    try {
-        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-        const messaging = firebase.messaging();
-        const reg = await navigator.serviceWorker.ready;
-        const token = await messaging.getToken({
-            vapidKey: FIREBASE_VAPID_KEY,
-            serviceWorkerRegistration: reg
-        });
-        if (token) {
-            await apiCall('registerToken', { token });
-        }
-    } catch (err) {
-        console.warn('FCM-Token-Registrierung fehlgeschlagen:', err);
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    const messaging = firebase.messaging();
+    const reg = await navigator.serviceWorker.ready;
+    const token = await messaging.getToken({
+        vapidKey: FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration: reg
+    });
+    if (!token) {
+        throw new Error('Kein FCM-Token erhalten.');
     }
+    await apiCall('registerToken', { token });
 }
 
 function showLoading(show) {
