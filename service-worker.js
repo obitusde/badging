@@ -11,7 +11,7 @@
 // index.html sein (siehe dort für die Firebase-Konsole-Werte).
 // =============================================================
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = `royal-oak-${CACHE_VERSION}`;
 const SHELL_FILES = [
   './',
@@ -46,7 +46,8 @@ self.addEventListener('activate', (event) => {
 });
 
 // =============================================================
-// Fetch — Cache-First für Shell, Network für API
+// Fetch — Network-First für die Seite selbst, Cache-First für den
+// Rest der Shell, Network-only für die API
 // =============================================================
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
@@ -54,6 +55,22 @@ self.addEventListener('fetch', (event) => {
   // Apps Script Aufrufe niemals cachen
   if (url.hostname.includes('googleusercontent.com') ||
       url.hostname.includes('script.google.com')) {
+    return;
+  }
+
+  // Die HTML-Seite selbst immer zuerst frisch vom Netz laden, damit
+  // neue Deployments sofort ankommen (nicht erst nach einem weiteren
+  // Service-Worker-Update-Zyklus). Nur bei Offline auf Cache zurückfallen.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
     return;
   }
 
