@@ -74,6 +74,10 @@ function doGet(e) {
     else if (action === 'registerToken') {
       result = registerToken(e.parameter.token);
     }
+    else if (action === 'debugPush') {
+      // Temporär zum Debuggen — danach wieder entfernen.
+      result = sendPush_('Debug', 'Testnachricht von debugPush');
+    }
     else {
       result = { error: 'Unknown action: ' + action };
     }
@@ -248,7 +252,9 @@ function sendPush_(title, body) {
   const props = PropertiesService.getScriptProperties();
   const token = props.getProperty('FCM_TOKEN');
   const projectId = props.getProperty('FCM_PROJECT_ID');
-  if (!token || !projectId) return; // Noch kein Gerät registriert
+  if (!token || !projectId) {
+    return { skipped: true, reason: 'FCM_TOKEN oder FCM_PROJECT_ID fehlt.' };
+  }
 
   const accessToken = getFcmAccessToken_();
   const message = {
@@ -261,13 +267,20 @@ function sendPush_(title, body) {
     }
   };
 
-  UrlFetchApp.fetch('https://fcm.googleapis.com/v1/projects/' + projectId + '/messages:send', {
+  const response = UrlFetchApp.fetch('https://fcm.googleapis.com/v1/projects/' + projectId + '/messages:send', {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + accessToken },
     payload: JSON.stringify(message),
     muteHttpExceptions: true
   });
+
+  const code = response.getResponseCode();
+  const text = response.getContentText();
+  if (code !== 200) {
+    throw new Error('FCM-Versand fehlgeschlagen (' + code + '): ' + text);
+  }
+  return { ok: true, fcmResponse: text };
 }
 
 // =============================================================
