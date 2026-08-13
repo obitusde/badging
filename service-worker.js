@@ -1,12 +1,17 @@
 // =============================================================
 // Royal Oak Arbeitszeit — Service Worker
 // =============================================================
-// Liest alle Einstellungen aus dem Config-Blob, den die Seite
-// beim Laden in den Cache schreibt. Hier muss nichts angepasst
-// werden — die Config-Werte stehen in index.html.
+// App-Shell-Caching plus Firebase Cloud Messaging für echte Push-
+// Benachrichtigungen im Hintergrund (Handy gesperrt / App zu).
+// Die Erinnerungs-Logik (wann was geschickt wird) läuft komplett
+// serverseitig in Code.gs (Apps Script) — dieser Service Worker
+// zeigt nur an, was der Server per Push schickt.
+//
+// FIREBASE_CONFIG unten muss identisch zu FIREBASE_CONFIG in
+// index.html sein (siehe dort für die Firebase-Konsole-Werte).
 // =============================================================
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `royal-oak-${CACHE_VERSION}`;
 const SHELL_FILES = [
   './',
@@ -67,96 +72,34 @@ self.addEventListener('fetch', (event) => {
 });
 
 // =============================================================
-// Periodic background sync (best-effort)
+// Firebase Cloud Messaging — Push im Hintergrund entgegennehmen
 // =============================================================
-self.addEventListener('periodicsync', (event) => {
-  if (event.tag === 'check-badge-status') {
-    event.waitUntil(checkAndRemind());
-  }
+importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+  apiKey: "PASTE_FIREBASE_API_KEY",
+  authDomain: "PASTE_FIREBASE_AUTH_DOMAIN",
+  projectId: "PASTE_FIREBASE_PROJECT_ID",
+  storageBucket: "PASTE_FIREBASE_STORAGE_BUCKET",
+  messagingSenderId: "PASTE_FIREBASE_MESSAGING_SENDER_ID",
+  appId: "PASTE_FIREBASE_APP_ID"
 });
 
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'check-badge-status') {
-    event.waitUntil(checkAndRemind());
-  }
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  const title = (payload.data && payload.data.title) || 'Royal Oak Arbeitszeit';
+  const body = (payload.data && payload.data.body) || '';
+  self.registration.showNotification(title, {
+    body: body,
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: 'badge-reminder',
+    requireInteraction: true,
+    vibrate: [200, 100, 200]
+  });
 });
-
-// =============================================================
-// Nachrichten von der Seite
-// =============================================================
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'CHECK_REMINDER') {
-    event.waitUntil(checkAndRemind());
-  }
-  if (event.data && event.data.type === 'SCHEDULE_REMINDER') {
-    scheduleReminder(event.data.fireAtMs);
-  }
-});
-
-// =============================================================
-// Config aus dem Cache lesen
-// =============================================================
-async function getConfig() {
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    const res = await cache.match('config-reminder');
-    if (res) return await res.json();
-  } catch (e) { /* ignore */ }
-  return null;
-}
-
-// =============================================================
-// Kern-Logik: Status prüfen, ggf. Benachrichtigung anzeigen
-// =============================================================
-async function checkAndRemind() {
-  const config = await getConfig();
-  if (!config) return;
-
-  // Erinnerung in Config deaktiviert?
-  if (!config.morningActive) return;
-
-  // Wochenende?
-  if (!config.weekendActive) {
-    const tag = new Date().getDay();
-    if (tag === 0 || tag === 6) return;
-  }
-
-  if (!config.apiUrl) return;
-
-  try {
-    const dateStr = new Date().toDateString();
-    const url = `${config.apiUrl}?action=checkReminder&date=${encodeURIComponent(dateStr)}`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.needsReminder) {
-      await self.registration.showNotification('Stempeln nicht vergessen!', {
-        body: 'Du hast heute noch nicht eingestempelt.',
-        icon: './icon-192.png',
-        badge: './icon-192.png',
-        tag: 'badge-reminder',
-        requireInteraction: true,
-        vibrate: [200, 100, 200]
-      });
-    }
-  } catch (err) {
-    // Stille — beim nächsten Sync neu versuchen
-  }
-}
-
-// =============================================================
-// Lokaler Timer (best-effort, hält nur solange SW lebt)
-// =============================================================
-let reminderTimer = null;
-function scheduleReminder(fireAtMs) {
-  if (reminderTimer) clearTimeout(reminderTimer);
-  const delay = fireAtMs - Date.now();
-  if (delay <= 0) {
-    checkAndRemind();
-    return;
-  }
-  reminderTimer = setTimeout(() => checkAndRemind(), delay);
-}
 
 // =============================================================
 // Klick auf Notification — App öffnen / fokussieren
