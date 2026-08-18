@@ -8,16 +8,16 @@ Reminders are **not** driven by the app being open. A time-driven trigger inside
 
 Flow: `Code.gs` (5-min trigger) → FCM → your phone's push service → `service-worker.js`'s `push` listener → notification shown.
 
-There are four reminder types:
+There are five reminder types. Two are fixed clock-time reminders ("did you forget to X by time Y"), and two are **milestone-based** — they fire once at each listed threshold, not on a repeating interval:
 
 | Reminder | Fires when | Notification |
 |---|---|---|
-| Morning | You haven't clocked in by a set time | "Stempeln nicht vergessen!" |
-| Lunch | You're clocked in ("ARBEIT") past a set time with no break started yet | "Mittagspause vergessen?" |
-| Break-end | You're still on break ("PAUSE") past a set time | "Pause beenden?" |
-| Feierabend | You've reached your Sollarbeitszeit (target hours) and are still clocked in; repeats every N minutes until you clock out | "FEIERABEND!" / "Immer noch eingestempelt!" |
+| Morning | You haven't clocked in by a set time (off by default) | "Stempeln nicht vergessen!" |
+| Lunch forgotten | You're clocked in ("ARBEIT") past a set time with no break started yet | "Mittagspause vergessen?" |
+| Break duration | Your break ("PAUSE") has lasted 30 min, then again at 60 min | "Pause dauert schon 30/60 Minuten" |
+| Feierabend | Milestones at 0 (Sollarbeitszeit reached), +30, +60 min overtime | "FEIERABEND!" / "30/60 Minuten Überstunden" |
 
-Each reminder fires at most once per condition per day (the morning/lunch/break-end reminders reset at midnight; the Feierabend reminder keeps repeating at the configured interval until you clock out).
+Fixed-time reminders (morning, lunch-forgotten) reset at midnight. Milestone reminders (break duration, Feierabend) each fire exactly once per occurrence: break-duration milestones reset every time a new break starts, Feierabend milestones reset on a fresh clock-in (or at midnight). After the last configured milestone (60 min), no further reminders fire for that break/overtime period.
 
 ## How to change reminder behavior
 
@@ -30,19 +30,29 @@ const ERINNERUNG_MORGENS_AKTIV = false;     // morning reminder on/off
 const ERINNERUNG_MORGENS_STUNDE = 9;
 const ERINNERUNG_MORGENS_MINUTE = 0;
 
-const ERINNERUNG_MITTAG_VERGESSEN_AKTIV = true;   // lunch reminder on/off
+const ERINNERUNG_MITTAG_VERGESSEN_AKTIV = true;   // lunch-forgotten reminder on/off
 const ERINNERUNG_MITTAG_VERGESSEN_STUNDE = 12;
 const ERINNERUNG_MITTAG_VERGESSEN_MINUTE = 30;
 
-const ERINNERUNG_PAUSE_ENDE_AKTIV = true;   // break-end reminder on/off
-const ERINNERUNG_PAUSE_ENDE_STUNDE = 13;
-const ERINNERUNG_PAUSE_ENDE_MINUTE = 30;
+const ERINNERUNG_PAUSE_DAUER_AKTIV = true;                        // break-duration reminder on/off
+const ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN = [30, 60];     // minutes into the break
 
-const ERINNERUNG_FEIERABEND_AKTIV = true;   // Feierabend reminder on/off
-const ERINNERUNG_FEIERABEND_INTERVAL_MINUTEN = 15;   // repeat interval
+const ERINNERUNG_FEIERABEND_AKTIV = true;                         // Feierabend reminder on/off
+const ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN = [0, 30, 60];   // 0 = Soll reached, then overtime minutes
 ```
 
-To change wording, hours, minutes, on/off toggles, or the repeat interval: edit these constants (or the reminder text inside the `checkAndNotify()` function further down) directly in `Code.gs`.
+The two milestone arrays (`ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN`, `ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN`) can have values added or removed freely — e.g. add `90` to get a third break-duration nudge, or `120` for a 2-hour-overtime alert. Each value needs no code change to work; it just won't have custom wording (see below) unless you add it.
+
+Custom wording per milestone lives in two lookup objects further down in `Code.gs`, `PAUSE_DAUER_TEXTE_` and `FEIERABEND_MEILENSTEIN_TEXTE_`:
+
+```js
+const PAUSE_DAUER_TEXTE_ = {
+  30: { title: 'Pause dauert schon 30 Minuten', body: 'Denk dran, rechtzeitig weiterzuarbeiten.' },
+  60: { title: 'Pause dauert schon 60 Minuten', body: 'Das ist schon eine lange Pause — bitte zurückstempeln.' }
+};
+```
+
+Any milestone value without an entry here falls back to a generic auto-generated message, so adding a new milestone number to the array above always works even before you write custom text for it.
 
 **⚠️ After editing `Code.gs`, you must redeploy — saving alone is not enough:**
 

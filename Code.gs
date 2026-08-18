@@ -37,15 +37,17 @@ const ERINNERUNG_MITTAG_VERGESSEN_AKTIV = true;
 const ERINNERUNG_MITTAG_VERGESSEN_STUNDE = 12;
 const ERINNERUNG_MITTAG_VERGESSEN_MINUTE = 30;
 
-// 3. Pause-Ende-Erinnerung: wenn Pause-Status zu lange aktiv
-const ERINNERUNG_PAUSE_ENDE_AKTIV = true;
-const ERINNERUNG_PAUSE_ENDE_STUNDE = 13;
-const ERINNERUNG_PAUSE_ENDE_MINUTE = 30;
+// 3. Pause-Dauer-Erinnerung: wenn die Pause zu lange dauert
+//    (Minuten seit Pausenbeginn — Meilensteine, jeder feuert einmal
+//    pro Pause; hier einfach weitere Werte ergänzen/entfernen)
+const ERINNERUNG_PAUSE_DAUER_AKTIV = true;
+const ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN = [30, 60];
 
-// 4. Feierabend-Erinnerung: bei erreichter Sollarbeitszeit
-//    Wiederholt sich alle X Minuten bis ausgestempelt
+// 4. Feierabend-Erinnerung: Meilensteine ab Sollarbeitszeit
+//    (0 = Sollarbeitszeit erreicht, dann Minuten Überstunden danach —
+//    hier einfach weitere Werte ergänzen/entfernen)
 const ERINNERUNG_FEIERABEND_AKTIV = true;
-const ERINNERUNG_FEIERABEND_INTERVAL_MINUTEN = 15;
+const ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN = [0, 30, 60];
 
 // =============================================================
 // JSON API entry point — handles ALL requests from the PWA
@@ -145,6 +147,7 @@ function stempeln(aktion, geplantePause, clientHeuteStr) {
   else if (aktion === 'PAUSE_START') {
     props.setProperty('STATUS', 'PAUSE');
     props.setProperty('UI_PAUSE_START', jetztMs.toString());
+    clearPauseReminderFlags_();
   }
   else if (aktion === 'PAUSE_ENDE') {
     const startPauseStr = props.getProperty('UI_PAUSE_START');
@@ -325,16 +328,23 @@ function checkAndNotify() {
     }
   }
 
-  // --- Pause-Ende-Erinnerung ---
-  if (ERINNERUNG_PAUSE_ENDE_AKTIV && status.status === 'PAUSE') {
-    const pauseEndeZeitNummer = ERINNERUNG_PAUSE_ENDE_STUNDE * 100 + ERINNERUNG_PAUSE_ENDE_MINUTE;
-    if (aktuelleUhrzeitNummer >= pauseEndeZeitNummer && !props.getProperty('SENT_PAUSE_ENDE')) {
-      sendPush_('Pause beenden?', 'Du bist laut App immer noch in der Pause.');
-      props.setProperty('SENT_PAUSE_ENDE', '1');
-    }
+  // --- Pause-Dauer-Erinnerung (Meilensteine seit Pausenbeginn) ---
+  if (ERINNERUNG_PAUSE_DAUER_AKTIV && status.status === 'PAUSE' && status.uiPauseStartZeit) {
+    const pauseDauerMinuten = Math.floor((Date.now() - status.uiPauseStartZeit) / 60000);
+    ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN.forEach(function (m) {
+      const flag = 'SENT_PAUSE_DAUER_' + m;
+      if (pauseDauerMinuten >= m && !props.getProperty(flag)) {
+        const txt = PAUSE_DAUER_TEXTE_[m] || {
+          title: 'Pause dauert schon ' + m + ' Minuten',
+          body: 'Bitte denk daran, die Pause zu beenden.'
+        };
+        sendPush_(txt.title, txt.body);
+        props.setProperty(flag, '1');
+      }
+    });
   }
 
-  // --- Feierabend-Erinnerung ---
+  // --- Feierabend-Erinnerung (Meilensteine ab Sollarbeitszeit) ---
   if (ERINNERUNG_FEIERABEND_AKTIV && (status.status === 'ARBEIT' || status.status === 'PAUSE') && status.kommenZeit) {
     const sollMs = (SOLL_STUNDEN * 60 + SOLL_MINUTEN) * 60 * 1000;
     let pauseMs = status.realePauseMs;
@@ -342,29 +352,50 @@ function checkAndNotify() {
       pauseMs += (Date.now() - status.uiPauseStartZeit);
     }
     const feierabendMs = status.kommenZeit + sollMs + pauseMs;
+    const ueberstundenMinuten = Math.floor((Date.now() - feierabendMs) / 60000);
 
-    if (Date.now() >= feierabendMs) {
-      const lastStr = props.getProperty('LAST_FEIERABEND_ERINNERUNG');
-      const intervalMs = ERINNERUNG_FEIERABEND_INTERVAL_MINUTEN * 60 * 1000;
-
-      if (!lastStr) {
-        sendPush_('FEIERABEND!', 'Du hast deine Sollarbeitszeit erreicht. Vergiss das Ausstempeln nicht!');
-        props.setProperty('LAST_FEIERABEND_ERINNERUNG', Date.now().toString());
-      } else if (Date.now() - parseInt(lastStr, 10) >= intervalMs) {
-        const ueberstundenMinuten = Math.floor((Date.now() - feierabendMs) / 60000);
-        sendPush_('Immer noch eingestempelt!', 'Du bist seit ' + ueberstundenMinuten + ' Minuten im Feierabend. Bitte ausstempeln!');
-        props.setProperty('LAST_FEIERABEND_ERINNERUNG', Date.now().toString());
+    ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN.forEach(function (m) {
+      const flag = 'SENT_FEIERABEND_' + m;
+      if (ueberstundenMinuten >= m && !props.getProperty(flag)) {
+        const txt = FEIERABEND_MEILENSTEIN_TEXTE_[m] || {
+          title: m + ' Minuten Überstunden',
+          body: 'Du bist seit ' + m + ' Minuten über deiner Sollarbeitszeit. Bitte ausstempeln!'
+        };
+        sendPush_(txt.title, txt.body);
+        props.setProperty(flag, '1');
       }
-    }
+    });
   }
 }
+
+// Feste Texte für bekannte Meilensteine — für neue Werte in den
+// Konfig-Arrays oben wird automatisch ein generischer Text erzeugt.
+const PAUSE_DAUER_TEXTE_ = {
+  30: { title: 'Pause dauert schon 30 Minuten', body: 'Denk dran, rechtzeitig weiterzuarbeiten.' },
+  60: { title: 'Pause dauert schon 60 Minuten', body: 'Das ist schon eine lange Pause — bitte zurückstempeln.' }
+};
+
+const FEIERABEND_MEILENSTEIN_TEXTE_ = {
+  0: { title: 'FEIERABEND!', body: 'Du hast deine Sollarbeitszeit erreicht. Vergiss das Ausstempeln nicht!' },
+  30: { title: '30 Minuten Überstunden', body: 'Du bist seit 30 Minuten über deiner Sollarbeitszeit. Bitte ausstempeln!' },
+  60: { title: '60 Minuten Überstunden', body: 'Du bist seit einer Stunde über deiner Sollarbeitszeit. Bitte ausstempeln!' }
+};
 
 function clearReminderFlags_() {
   const props = PropertiesService.getScriptProperties();
   props.deleteProperty('SENT_MORGEN');
   props.deleteProperty('SENT_MITTAG');
-  props.deleteProperty('SENT_PAUSE_ENDE');
-  props.deleteProperty('LAST_FEIERABEND_ERINNERUNG');
+  clearPauseReminderFlags_();
+  ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN.forEach(function (m) {
+    props.deleteProperty('SENT_FEIERABEND_' + m);
+  });
+}
+
+function clearPauseReminderFlags_() {
+  const props = PropertiesService.getScriptProperties();
+  ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN.forEach(function (m) {
+    props.deleteProperty('SENT_PAUSE_DAUER_' + m);
+  });
 }
 
 // =============================================================
