@@ -61,6 +61,11 @@ Any milestone value without an entry here falls back to a generic auto-generated
 
 Saving the script updates what the 5-minute trigger runs (so `checkAndNotify` picks up changes quickly), but the live `/exec` URL that the app itself talks to stays pinned to whatever was last deployed until you explicitly push a new version.
 
+**Do you need to reload/clear the app on your phone after a change?**
+
+- **`Code.gs` only** (reminder times, wording, milestones, etc.): no. It's pure backend — the phone never caches anything from it (the service worker explicitly never caches `script.google.com` requests). Redeploying is enough; effective immediately.
+- **`index.html` or `service-worker.js`**: reload the app once. Thanks to the network-first fetch strategy, a normal reload picks up changes automatically — the previous "clear all site data" workaround should only be needed again if something is genuinely stuck.
+
 ## First-time setup (already done, for reference)
 
 - A Firebase project (`badging-e9359`) provides the push channel. Its Web config lives in both `index.html` (`FIREBASE_CONFIG`, `FIREBASE_VAPID_KEY`) and `service-worker.js` — kept in sync manually since a service worker can't read the page's JS.
