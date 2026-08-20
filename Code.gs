@@ -21,33 +21,35 @@
 const SOLL_STUNDEN = 8;
 const SOLL_MINUTEN = 25;
 
+// ----- Pause-Grenzen (auch im Frontend gesetzt) -----
+const PAUSE_MIN_MINUTEN = 30;
+const PAUSE_MAX_MINUTEN = 120;
+
 // ----- Erinnerungen -----
-// Jede Erinnerung kann einzeln ein-/ausgeschaltet werden (true / false)
+// Jede Erinnerung ist ein Zeitfenster "von–bis". Innerhalb des Fensters
+// wird alle ERINNERUNG_WIEDERHOLUNG_MINUTEN erinnert, aber nur solange
+// die jeweilige Aktion noch aussteht (z. B. noch nicht eingestempelt).
 
 // Erinnerungen am Wochenende? (Samstag + Sonntag)
 const ERINNERUNGEN_AM_WOCHENENDE = false;
 
-// 1. Morgen-Erinnerung: wenn noch nicht eingestempelt
-const ERINNERUNG_MORGENS_AKTIV = false;
-const ERINNERUNG_MORGENS_STUNDE = 9;
-const ERINNERUNG_MORGENS_MINUTE = 0;
+// Wiederholungsabstand innerhalb eines Fensters
+const ERINNERUNG_WIEDERHOLUNG_MINUTEN = 30;
 
-// 2. Mittag-Erinnerung: wenn keine Pause gestartet wurde
-const ERINNERUNG_MITTAG_VERGESSEN_AKTIV = true;
-const ERINNERUNG_MITTAG_VERGESSEN_STUNDE = 12;
-const ERINNERUNG_MITTAG_VERGESSEN_MINUTE = 30;
+// 1. Einstempeln — wenn morgens noch nicht gestempelt wurde
+const ERINNERUNG_KOMMEN_AKTIV = true;
+const ERINNERUNG_KOMMEN_VON = "09:00";
+const ERINNERUNG_KOMMEN_BIS = "11:00";
 
-// 3. Pause-Dauer-Erinnerung: wenn die Pause zu lange dauert
-//    (Minuten seit Pausenbeginn — Meilensteine, jeder feuert einmal
-//    pro Pause; hier einfach weitere Werte ergänzen/entfernen)
-const ERINNERUNG_PAUSE_DAUER_AKTIV = true;
-const ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN = [30, 60];
+// 2. Mittagspause — Pause starten (wenn noch keine) bzw. beenden
+const ERINNERUNG_PAUSE_AKTIV = true;
+const ERINNERUNG_PAUSE_VON = "11:30";
+const ERINNERUNG_PAUSE_BIS = "13:30";
 
-// 4. Feierabend-Erinnerung: Meilensteine ab Sollarbeitszeit
-//    (0 = Sollarbeitszeit erreicht, dann Minuten Überstunden danach —
-//    hier einfach weitere Werte ergänzen/entfernen)
-const ERINNERUNG_FEIERABEND_AKTIV = true;
-const ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN = [0, 30, 60];
+// 3. Ausstempeln — wenn nachmittags noch eingestempelt
+const ERINNERUNG_GEHEN_AKTIV = true;
+const ERINNERUNG_GEHEN_VON = "16:00";
+const ERINNERUNG_GEHEN_BIS = "22:00";
 
 // =============================================================
 // JSON API entry point — handles ALL requests from the PWA
@@ -69,6 +71,9 @@ function doGet(e) {
     else if (action === 'updatePause') {
       const pause = parseInt(e.parameter.pause, 10) || 45;
       result = updatePauseInScript(pause, clientDate);
+    }
+    else if (action === 'setZeit') {
+      result = setZeit(e.parameter.feld, e.parameter.wert, clientDate);
     }
     else if (action === 'reset') {
       result = komplettReset();
@@ -147,7 +152,6 @@ function stempeln(aktion, geplantePause, clientHeuteStr) {
   else if (aktion === 'PAUSE_START') {
     props.setProperty('STATUS', 'PAUSE');
     props.setProperty('UI_PAUSE_START', jetztMs.toString());
-    clearPauseReminderFlags_();
   }
   else if (aktion === 'PAUSE_ENDE') {
     const startPauseStr = props.getProperty('UI_PAUSE_START');
@@ -183,6 +187,78 @@ function updatePauseInScript(geplanteMinuten, clientHeuteStr) {
   const props = getStorage();
   props.setProperty('GEPLANTE_PAUSE', geplanteMinuten.toString());
   return getHeutigenStatus(clientHeuteStr || new Date().toDateString());
+}
+
+// =============================================================
+// Manuelle Zeiteingabe — Kommen / Gehen / Pause direkt setzen
+// (die Stempel-Buttons funktionieren unverändert weiter)
+// =============================================================
+function setZeit(feld, wert, clientHeuteStr) {
+  const props = getStorage();
+  const heuteStr = clientHeuteStr || new Date().toDateString();
+  props.setProperty('LETZTER_TAG', heuteStr);
+
+  if (feld === 'kommen') {
+    const ms = zeitZuMs_(wert, heuteStr);
+    if (ms === null) return { error: 'Ungültige Uhrzeit.' };
+    props.setProperty('KOMMEN_ZEIT', ms.toString());
+    // Wer eine Kommen-Zeit einträgt, hat den Tag begonnen.
+    if ((props.getProperty('STATUS') || 'BEREIT') === 'BEREIT') {
+      props.setProperty('STATUS', 'ARBEIT');
+      if (!props.getProperty('REALE_PAUSE_MS')) props.setProperty('REALE_PAUSE_MS', '0');
+    }
+    clearReminderFlags_();
+  }
+  else if (feld === 'gehen') {
+    const ms = zeitZuMs_(wert, heuteStr);
+    if (ms === null) return { error: 'Ungültige Uhrzeit.' };
+    // Eine noch laufende Pause vorher sauber abschließen
+    if (props.getProperty('STATUS') === 'PAUSE') {
+      const startPauseStr = props.getProperty('UI_PAUSE_START');
+      if (startPauseStr) {
+        const bisherigePauseMs = props.getProperty('REALE_PAUSE_MS') ? parseInt(props.getProperty('REALE_PAUSE_MS'), 10) : 0;
+        props.setProperty('REALE_PAUSE_MS', (bisherigePauseMs + (Date.now() - parseInt(startPauseStr, 10))).toString());
+      }
+      props.deleteProperty('UI_PAUSE_START');
+    }
+    props.setProperty('GEHEN_ZEIT', ms.toString());
+    props.setProperty('STATUS', 'BEENDET');
+  }
+  else if (feld === 'pause') {
+    let minuten = parseInt(wert, 10);
+    if (isNaN(minuten)) return { error: 'Ungültige Pausendauer.' };
+    minuten = Math.min(PAUSE_MAX_MINUTEN, Math.max(PAUSE_MIN_MINUTEN, minuten));
+    props.setProperty('GEPLANTE_PAUSE', minuten.toString());
+
+    const status = props.getProperty('STATUS') || 'BEREIT';
+    const realeBisher = props.getProperty('REALE_PAUSE_MS') ? parseInt(props.getProperty('REALE_PAUSE_MS'), 10) : 0;
+    // Ist die Pause schon real gelaufen (oder läuft gerade), zählt der
+    // eingetragene Wert ab jetzt als tatsächliche Pausendauer.
+    if (realeBisher > 0 || status === 'PAUSE') {
+      props.setProperty('REALE_PAUSE_MS', (minuten * 60000).toString());
+      if (status === 'PAUSE') props.setProperty('UI_PAUSE_START', Date.now().toString());
+    }
+  }
+  else {
+    return { error: 'Unbekanntes Feld: ' + feld };
+  }
+
+  return getHeutigenStatus(heuteStr);
+}
+
+// "HH:MM" am gegebenen Tag → Millisekunden-Timestamp
+function zeitZuMs_(hhmm, heuteStr) {
+  if (!hhmm || hhmm.indexOf(':') === -1) return null;
+  const teile = hhmm.split(':');
+  const h = parseInt(teile[0], 10);
+  const m = parseInt(teile[1], 10);
+  if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  // heuteStr kommt als toDateString() vom Client. Lässt es sich nicht
+  // parsen, lieber auf heute zurückfallen als die Eingabe abzulehnen.
+  let d = new Date(heuteStr);
+  if (isNaN(d.getTime())) d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
 }
 
 function komplettReset() {
@@ -308,93 +384,101 @@ function checkAndNotify() {
 
   const status = getHeutigenStatus(heuteStr);
   const jetzt = new Date();
-  const aktuelleUhrzeitNummer = jetzt.getHours() * 100 + jetzt.getMinutes();
+  const jetztMinuten = jetzt.getHours() * 60 + jetzt.getMinutes();
 
-  // --- Morgen-Erinnerung ---
-  if (ERINNERUNG_MORGENS_AKTIV && status.status === 'BEREIT') {
-    const morgenZeitNummer = ERINNERUNG_MORGENS_STUNDE * 100 + ERINNERUNG_MORGENS_MINUTE;
-    if (aktuelleUhrzeitNummer >= morgenZeitNummer && !props.getProperty('SENT_MORGEN')) {
-      sendPush_('Stempeln nicht vergessen!', 'Du hast heute noch nicht eingestempelt.');
-      props.setProperty('SENT_MORGEN', '1');
-    }
+  // --- 1. Einstempeln vergessen? ---
+  if (ERINNERUNG_KOMMEN_AKTIV
+      && status.status === 'BEREIT'
+      && imFenster_(jetztMinuten, ERINNERUNG_KOMMEN_VON, ERINNERUNG_KOMMEN_BIS)
+      && darfSenden_(props, 'KOMMEN')) {
+    sendPush_('Einstempeln nicht vergessen!', 'Du hast heute noch nicht eingestempelt.');
+    merkeGesendet_(props, 'KOMMEN');
   }
 
-  // --- Mittag-Erinnerung ---
-  if (ERINNERUNG_MITTAG_VERGESSEN_AKTIV && status.status === 'ARBEIT' && status.realePauseMs === 0) {
-    const mittagZeitNummer = ERINNERUNG_MITTAG_VERGESSEN_STUNDE * 100 + ERINNERUNG_MITTAG_VERGESSEN_MINUTE;
-    if (aktuelleUhrzeitNummer >= mittagZeitNummer && !props.getProperty('SENT_MITTAG')) {
-      sendPush_('Mittagspause vergessen?', 'Hast du vergessen, die Pause einzutragen?');
-      props.setProperty('SENT_MITTAG', '1');
-    }
+  // --- 2a. Mittagspause noch nicht gestartet ---
+  if (ERINNERUNG_PAUSE_AKTIV
+      && status.status === 'ARBEIT'
+      && status.realePauseMs === 0
+      && imFenster_(jetztMinuten, ERINNERUNG_PAUSE_VON, ERINNERUNG_PAUSE_BIS)
+      && darfSenden_(props, 'PAUSE_START')) {
+    sendPush_('Mittagspause nicht vergessen!', 'Noch keine Pause eingetragen. ' + restzeitText_(status));
+    merkeGesendet_(props, 'PAUSE_START');
   }
 
-  // --- Pause-Dauer-Erinnerung (Meilensteine seit Pausenbeginn) ---
-  if (ERINNERUNG_PAUSE_DAUER_AKTIV && status.status === 'PAUSE' && status.uiPauseStartZeit) {
-    const pauseDauerMinuten = Math.floor((Date.now() - status.uiPauseStartZeit) / 60000);
-    ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN.forEach(function (m) {
-      const flag = 'SENT_PAUSE_DAUER_' + m;
-      if (pauseDauerMinuten >= m && !props.getProperty(flag)) {
-        const txt = PAUSE_DAUER_TEXTE_[m] || {
-          title: 'Pause dauert schon ' + m + ' Minuten',
-          body: 'Bitte denk daran, die Pause zu beenden.'
-        };
-        sendPush_(txt.title, txt.body);
-        props.setProperty(flag, '1');
-      }
-    });
+  // --- 2b. Pause läuft noch ---
+  if (ERINNERUNG_PAUSE_AKTIV
+      && status.status === 'PAUSE'
+      && imFenster_(jetztMinuten, ERINNERUNG_PAUSE_VON, ERINNERUNG_PAUSE_BIS)
+      && darfSenden_(props, 'PAUSE_ENDE')) {
+    const pauseMinuten = Math.floor(aktuellePauseMs_(status) / 60000);
+    sendPush_('Pause beenden?', 'Du bist seit ' + pauseMinuten + ' Minuten in der Pause. ' + restzeitText_(status));
+    merkeGesendet_(props, 'PAUSE_ENDE');
   }
 
-  // --- Feierabend-Erinnerung (Meilensteine ab Sollarbeitszeit) ---
-  if (ERINNERUNG_FEIERABEND_AKTIV && (status.status === 'ARBEIT' || status.status === 'PAUSE') && status.kommenZeit) {
-    const sollMs = (SOLL_STUNDEN * 60 + SOLL_MINUTEN) * 60 * 1000;
-    let pauseMs = status.realePauseMs;
-    if (status.status === 'PAUSE' && status.uiPauseStartZeit) {
-      pauseMs += (Date.now() - status.uiPauseStartZeit);
-    }
-    const feierabendMs = status.kommenZeit + sollMs + pauseMs;
-    const ueberstundenMinuten = Math.floor((Date.now() - feierabendMs) / 60000);
-
-    ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN.forEach(function (m) {
-      const flag = 'SENT_FEIERABEND_' + m;
-      if (ueberstundenMinuten >= m && !props.getProperty(flag)) {
-        const txt = FEIERABEND_MEILENSTEIN_TEXTE_[m] || {
-          title: m + ' Minuten Überstunden',
-          body: 'Du bist seit ' + m + ' Minuten über deiner Sollarbeitszeit. Bitte ausstempeln!'
-        };
-        sendPush_(txt.title, txt.body);
-        props.setProperty(flag, '1');
-      }
-    });
+  // --- 3. Ausstempeln vergessen? ---
+  if (ERINNERUNG_GEHEN_AKTIV
+      && (status.status === 'ARBEIT' || status.status === 'PAUSE')
+      && imFenster_(jetztMinuten, ERINNERUNG_GEHEN_VON, ERINNERUNG_GEHEN_BIS)
+      && darfSenden_(props, 'GEHEN')) {
+    sendPush_('Ausstempeln nicht vergessen!', restzeitText_(status));
+    merkeGesendet_(props, 'GEHEN');
   }
 }
 
-// Feste Texte für bekannte Meilensteine — für neue Werte in den
-// Konfig-Arrays oben wird automatisch ein generischer Text erzeugt.
-const PAUSE_DAUER_TEXTE_ = {
-  30: { title: 'Pause dauert schon 30 Minuten', body: 'Denk dran, rechtzeitig weiterzuarbeiten.' },
-  60: { title: 'Pause dauert schon 60 Minuten', body: 'Das ist schon eine lange Pause — bitte zurückstempeln.' }
-};
+// --- Hilfsfunktionen für die Erinnerungs-Fenster ---
 
-const FEIERABEND_MEILENSTEIN_TEXTE_ = {
-  0: { title: 'FEIERABEND!', body: 'Du hast deine Sollarbeitszeit erreicht. Vergiss das Ausstempeln nicht!' },
-  30: { title: '30 Minuten Überstunden', body: 'Du bist seit 30 Minuten über deiner Sollarbeitszeit. Bitte ausstempeln!' },
-  60: { title: '60 Minuten Überstunden', body: 'Du bist seit einer Stunde über deiner Sollarbeitszeit. Bitte ausstempeln!' }
-};
+function minutenAusZeit_(hhmm) {
+  const teile = hhmm.split(':');
+  return parseInt(teile[0], 10) * 60 + parseInt(teile[1], 10);
+}
+
+function imFenster_(jetztMinuten, von, bis) {
+  return jetztMinuten >= minutenAusZeit_(von) && jetztMinuten < minutenAusZeit_(bis);
+}
+
+function darfSenden_(props, key) {
+  const zuletzt = props.getProperty('LAST_SENT_' + key);
+  if (!zuletzt) return true;
+  return (Date.now() - parseInt(zuletzt, 10)) >= ERINNERUNG_WIEDERHOLUNG_MINUTEN * 60000;
+}
+
+function merkeGesendet_(props, key) {
+  props.setProperty('LAST_SENT_' + key, Date.now().toString());
+}
+
+// Tatsächlich angefallene Pause inkl. einer gerade laufenden Pause
+function aktuellePauseMs_(status) {
+  let p = status.realePauseMs || 0;
+  if (status.status === 'PAUSE' && status.uiPauseStartZeit) {
+    p += (Date.now() - status.uiPauseStartZeit);
+  }
+  return p;
+}
+
+// "Noch 2 Std 15 Min bis Feierabend." bzw. Überstunden-Variante
+function restzeitText_(status) {
+  if (!status.kommenZeit) return '';
+  const sollMs = (SOLL_STUNDEN * 60 + SOLL_MINUTEN) * 60 * 1000;
+  let pauseMs = aktuellePauseMs_(status);
+  if (pauseMs === 0) pauseMs = (status.geplantePauseMinuten || 0) * 60000;
+  const restMs = (status.kommenZeit + sollMs + pauseMs) - Date.now();
+  if (restMs > 0) {
+    return 'Noch ' + formatDauerKurz_(restMs) + ' bis Feierabend.';
+  }
+  return 'Du hast bereits ' + formatDauerKurz_(-restMs) + ' Überstunden.';
+}
+
+function formatDauerKurz_(ms) {
+  const gesamtMinuten = Math.floor(Math.abs(ms) / 60000);
+  const stunden = Math.floor(gesamtMinuten / 60);
+  const minuten = gesamtMinuten % 60;
+  return stunden > 0 ? (stunden + ' Std ' + minuten + ' Min') : (minuten + ' Min');
+}
 
 function clearReminderFlags_() {
   const props = PropertiesService.getScriptProperties();
-  props.deleteProperty('SENT_MORGEN');
-  props.deleteProperty('SENT_MITTAG');
-  clearPauseReminderFlags_();
-  ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN.forEach(function (m) {
-    props.deleteProperty('SENT_FEIERABEND_' + m);
-  });
-}
-
-function clearPauseReminderFlags_() {
-  const props = PropertiesService.getScriptProperties();
-  ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN.forEach(function (m) {
-    props.deleteProperty('SENT_PAUSE_DAUER_' + m);
+  ['KOMMEN', 'PAUSE_START', 'PAUSE_ENDE', 'GEHEN'].forEach(function (key) {
+    props.deleteProperty('LAST_SENT_' + key);
   });
 }
 

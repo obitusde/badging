@@ -23,42 +23,45 @@
             --link-color: #3498db;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); padding: 15px; display: flex; justify-content: center; min-height: 100vh; }
-        .container { width: 100%; max-width: 500px; background: var(--card-bg); border-radius: 20px; padding: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); position: relative; }
-        h1 { font-size: 22px; text-align: center; margin-bottom: 20px; color: var(--primary); font-weight: 800; letter-spacing: 0.5px; }
-        .status-badge { text-align: center; padding: 8px; border-radius: 10px; font-weight: bold; margin-bottom: 15px; background: #eee; font-size: 14px; }
+        body { background-color: var(--bg); color: var(--text); padding: 8px; display: flex; justify-content: center; min-height: 100dvh; }
+        .container { width: 100%; max-width: 460px; background: var(--card-bg); border-radius: 16px; padding: 14px; box-shadow: 0 8px 16px rgba(0,0,0,0.05); position: relative; }
+        h1 { font-size: 16px; text-align: center; margin-bottom: 8px; color: var(--primary); font-weight: 800; letter-spacing: 0.3px; }
+
+        .status-badge { text-align: center; padding: 6px; border-radius: 8px; font-weight: bold; margin-bottom: 8px; background: #eee; font-size: 13px; }
         .status-bereit { background: #e0e0e0; }
         .status-arbeit { background: #d4edda; color: #155724; }
         .status-pause { background: #fff3cd; color: #856404; }
         .status-feierabend { background: #cce5ff; color: #004085; }
 
-        .display-section { text-align: center; margin-bottom: 15px; }
-        .time-box { font-size: 38px; font-weight: 700; margin: 5px 0; font-variant-numeric: tabular-nums; }
-        .overtime { color: var(--success); }
+        .btn-link { background-color: transparent; border: 1.5px solid var(--link-color); color: var(--link-color); text-decoration: none; display: block; text-align: center; padding: 7px; border-radius: 9px; font-size: 12px; font-weight: bold; margin-bottom: 8px; }
 
-        .progress-container { width: 100%; background-color: #e9ecef; height: 8px; border-radius: 4px; margin-bottom: 25px; overflow: hidden; }
+        .display-section { text-align: center; }
+        .time-box { font-size: 34px; font-weight: 700; margin: 1px 0; font-variant-numeric: tabular-nums; line-height: 1.1; }
+        .overtime { color: var(--success); }
+        .sub-info { font-size: 11px; color: #7f8c8d; }
+
+        .progress-container { width: 100%; background-color: #e9ecef; height: 6px; border-radius: 3px; margin: 8px 0 10px; overflow: hidden; }
         .progress-bar { width: 0%; height: 100%; background-color: var(--link-color); transition: width 0.5s ease, background-color 0.5s ease; }
 
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; font-size: 14px; }
-        .info-card { background: #f1f3f5; padding: 10px; border-radius: 10px; text-align: center; }
-        .info-card span { display: block; font-weight: bold; font-size: 16px; margin-top: 5px; }
+        /* Zeit-Karten — antippen zum manuellen Bearbeiten */
+        .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; font-size: 11px; }
+        .info-card { background: #f1f3f5; padding: 7px 4px; border-radius: 8px; text-align: center; position: relative; cursor: pointer; -webkit-tap-highlight-color: rgba(52,152,219,0.2); }
+        .info-card:active { background: #e2e6ea; }
+        .info-card span { display: block; font-weight: bold; font-size: 14px; margin-top: 2px; }
+        .info-card::after { content: "\270E"; position: absolute; top: 2px; right: 5px; font-size: 9px; color: #adb5bd; }
+        .inline-input { width: 100%; margin-top: 2px; font-size: 14px; font-weight: bold; text-align: center; border: 1px solid var(--link-color); border-radius: 6px; padding: 1px 2px; background: #fff; color: var(--text); }
 
-        .slider-section { background: #fdfdfd; border: 1px solid #e9ecef; padding: 15px; border-radius: 15px; margin-bottom: 20px; }
-        .slider-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
-        .slider { width: 100%; -webkit-appearance: none; height: 8px; border-radius: 5px; background: #dee2e6; outline: none; }
-        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--primary); cursor: pointer; }
-
-        .btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; color: white; cursor: pointer; margin-bottom: 10px; transition: opacity 0.2s; }
+        .btn { width: 100%; padding: 11px; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; color: white; cursor: pointer; margin-bottom: 7px; transition: opacity 0.2s; }
         .btn-start { background-color: var(--success); }
         .btn-pause { background-color: var(--warning); color: #333; }
         .btn-stop { background-color: var(--danger); }
-        .btn-link { background-color: transparent; border: 2px solid var(--link-color); color: var(--link-color); text-decoration: none; display: block; text-align: center; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: bold; margin-bottom: 15px; }
         .btn-disabled { opacity: 0.15; cursor: not-allowed; pointer-events: none; }
 
-        .btn-reset { background-color: transparent; border: none; color: #bdc3c7; font-size: 11px; cursor: pointer; text-decoration: underline; display: block; margin: 15px auto 0 auto; }
-        .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.85); display:flex; justify-content:center; align-items:center; z-index:100; font-weight:bold; font-size:14px; color: var(--primary); }
+        .footer-row { display: flex; gap: 10px; margin-top: 4px; }
+        .btn-mini { flex: 1; background-color: transparent; border: none; color: #bdc3c7; font-size: 11px; cursor: pointer; text-decoration: underline; padding: 2px; }
 
-        .config-warning { background: #fff3cd; color: #856404; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-size: 13px; line-height: 1.5; }
+        .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.85); display:flex; justify-content:center; align-items:center; z-index:100; font-weight:bold; font-size:14px; color: var(--primary); }
+        .config-warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -77,35 +80,30 @@
     <a id="btnAPTime" href="#" target="_blank" class="btn-link">🌐 AP Time öffnen</a>
 
     <div class="display-section">
-        <div id="countdownLabel" style="font-size: 13px; color: #7f8c8d;">Verbleibende Sollzeit:</div>
+        <div id="countdownLabel" style="font-size: 12px; color: #7f8c8d;">Verbleibende Sollzeit:</div>
         <div id="mainTimer" class="time-box">08:25:00</div>
+        <div class="sub-info">Gearbeitet <span id="lblRealeZeit">00:00</span> · Feierabend <span id="lblFeierabend">--:--</span></div>
     </div>
 
     <div class="progress-container">
         <div id="progressBar" class="progress-bar"></div>
     </div>
 
+    <!-- Antippen = Zeit manuell eintragen / korrigieren -->
     <div class="info-grid">
-        <div class="info-card">Kommen Zeit: <span id="lblKommen">--:--</span></div>
-        <div class="info-card">Geplanter Feierabend: <span id="lblFeierabend">--:--</span></div>
-        <div class="info-card">Reale Arbeitszeit: <span id="lblRealeZeit">00:00</span></div>
-        <div class="info-card">Pause (aktuell / geplant): <span id="lblPause">0 Min</span></div>
-    </div>
-
-    <div class="slider-section" id="sliderContainer">
-        <div class="slider-label">
-            <span>Geplante Mittagspause:</span>
-            <span id="sliderValue" style="font-weight: bold;">45 Minuten</span>
-        </div>
-        <input type="range" min="15" max="120" value="45" step="5" class="slider" id="pauseSlider">
+        <div class="info-card" id="cardKommen">Kommen<span id="lblKommen">--:--</span></div>
+        <div class="info-card" id="cardPause">Pause<span id="lblPause">45 Min</span></div>
+        <div class="info-card" id="cardGehen">Gehen<span id="lblGehen">--:--</span></div>
     </div>
 
     <button id="btnKommen" class="btn btn-start btn-disabled">Arbeitsbeginn (Kommen)</button>
     <button id="btnPause" class="btn btn-pause btn-disabled">Pause starten</button>
     <button id="btnGehen" class="btn btn-stop btn-disabled">Feierabend (Gehen)</button>
 
-    <button id="btnReset" class="btn-reset">System-Reset (Testmodus)</button>
-    <button id="btnNotify" class="btn-reset">🔔 Benachrichtigungen aktivieren</button>
+    <div class="footer-row">
+        <button id="btnNotify" class="btn-mini">🔔 Benachrichtigungen</button>
+        <button id="btnReset" class="btn-mini">System-Reset</button>
+    </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -126,17 +124,17 @@ const AP_TIME_URL = "https://aptime.cloud-horoquartz.fr";
 const SOLL_STUNDEN = 8;
 const SOLL_MINUTEN = 25;
 
-// ----- Pausen-Schieberegler -----
+// ----- Pause (Eingabegrenzen beim manuellen Bearbeiten) -----
 const PAUSE_STANDARD_MINUTEN = 45;    // Voreinstellung an neuem Tag
-const PAUSE_MIN_MINUTEN = 15;
+const PAUSE_MIN_MINUTEN = 30;
 const PAUSE_MAX_MINUTEN = 120;
 const PAUSE_SCHRITT_MINUTEN = 5;
 
 // ----- Erinnerungen -----
-// Alle Erinnerungs-Einstellungen (Zeiten, ein/aus) leben jetzt im
-// Apps-Script-Backend (Code.gs) — der Server prüft alle 5 Minuten
-// und verschickt Push-Benachrichtigungen, unabhängig davon, ob die
-// App geöffnet ist. Hier muss nichts mehr eingestellt werden.
+// Alle Erinnerungs-Einstellungen (Zeitfenster, ein/aus) leben jetzt im
+// Apps-Script-Backend (Code.gs) — der Server prüft alle 5 Minuten und
+// verschickt Push-Benachrichtigungen, unabhängig davon, ob die App
+// geöffnet ist. Hier muss nichts mehr eingestellt werden.
 
 // ----- Firebase Cloud Messaging (Push-Benachrichtigungen) -----
 // Werte aus der Firebase-Konsole: Projekteinstellungen → Allgemein
@@ -173,11 +171,13 @@ const btnGehen = document.getElementById('btnGehen');
 const btnReset = document.getElementById('btnReset');
 const btnNotify = document.getElementById('btnNotify');
 const btnAPTime = document.getElementById('btnAPTime');
-const pauseSlider = document.getElementById('pauseSlider');
-const sliderValue = document.getElementById('sliderValue');
+const cardKommen = document.getElementById('cardKommen');
+const cardPause = document.getElementById('cardPause');
+const cardGehen = document.getElementById('cardGehen');
 const mainTimer = document.getElementById('mainTimer');
 const progressBar = document.getElementById('progressBar');
 const lblKommen = document.getElementById('lblKommen');
+const lblGehen = document.getElementById('lblGehen');
 const lblFeierabend = document.getElementById('lblFeierabend');
 const lblRealeZeit = document.getElementById('lblRealeZeit');
 const lblPause = document.getElementById('lblPause');
@@ -185,13 +185,6 @@ const statusBadge = document.getElementById('statusBadge');
 const countdownLabel = document.getElementById('countdownLabel');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const configWarning = document.getElementById('configWarning');
-
-// Slider-Einstellungen aus Config
-pauseSlider.min = PAUSE_MIN_MINUTEN;
-pauseSlider.max = PAUSE_MAX_MINUTEN;
-pauseSlider.step = PAUSE_SCHRITT_MINUTEN;
-pauseSlider.value = PAUSE_STANDARD_MINUTEN;
-sliderValue.innerText = PAUSE_STANDARD_MINUTEN + " Minuten";
 
 // AP Time Link aus Config
 btnAPTime.href = AP_TIME_URL;
@@ -252,7 +245,7 @@ window.addEventListener('load', async () => {
         } else if (Notification.permission === "default") {
             // Automatischer Versuch beim ersten Laden. Manche Browser
             // unterdrücken das ungefragte Popup — dafür gibt es den
-            // "Benachrichtigungen aktivieren"-Button als Fallback.
+            // "Benachrichtigungen"-Button als Fallback.
             Notification.requestPermission().then((permission) => {
                 if (permission === "granted") {
                     registriereFcmToken().catch((err) => console.warn('FCM-Token-Registrierung fehlgeschlagen:', err));
@@ -321,9 +314,6 @@ function verarbeiteServerStatus(serverState) {
         state.geplantePauseMinuten = PAUSE_STANDARD_MINUTEN;
     }
 
-    pauseSlider.value = state.geplantePauseMinuten;
-    sliderValue.innerText = state.geplantePauseMinuten + " Minuten";
-
     updateUIForStatus();
     showLoading(false);
 }
@@ -338,26 +328,88 @@ async function initialisiereZustandVonServer() {
     }
 }
 
-pauseSlider.addEventListener('input', (e) => {
-    state.geplantePauseMinuten = parseInt(e.target.value, 10);
-    sliderValue.innerText = state.geplantePauseMinuten + " Minuten";
-    updateFeierabendAnzeige();
-    if (state.status === 'BEENDET' && state.realePauseMs === 0) {
-        updateBeendetAnzeige();
-    }
-});
+// =============================================================
+// Manuelle Zeiteingabe — Karte antippen, Wert eintragen
+// =============================================================
+function hhmmVon(date) {
+    if (!date) return "";
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    return h + ":" + m;
+}
 
-pauseSlider.addEventListener('change', async (e) => {
-    const beendetOhnePause = state.status === 'BEENDET' && state.realePauseMs === 0;
-    if (state.status === 'ARBEIT' || state.status === 'BEREIT' || beendetOhnePause) {
-        try {
-            await apiCall('updatePause', { pause: state.geplantePauseMinuten });
-        } catch (err) {
-            verarbeiteFehler(err);
+function aktuellePauseMinuten() {
+    if (state.realePauseMs > 0 || state.status === 'PAUSE') {
+        return Math.round(berechneAngezeigtePauseMs() / 60000);
+    }
+    return state.geplantePauseMinuten;
+}
+
+function bearbeiteFeld(card, feld) {
+    if (card.querySelector('input')) return;   // schon im Bearbeiten-Modus
+    const span = card.querySelector('span');
+    const input = document.createElement('input');
+    input.className = 'inline-input';
+
+    if (feld === 'pause') {
+        input.type = 'number';
+        input.min = PAUSE_MIN_MINUTEN;
+        input.max = PAUSE_MAX_MINUTEN;
+        input.step = PAUSE_SCHRITT_MINUTEN;
+        input.value = aktuellePauseMinuten();
+    } else {
+        input.type = 'time';
+        input.value = hhmmVon(feld === 'kommen' ? state.kommenZeit : state.gehenZeit);
+    }
+
+    span.style.display = 'none';
+    card.appendChild(input);
+    input.focus();
+    if (input.showPicker) {
+        try { input.showPicker(); } catch (e) { /* nicht überall unterstützt */ }
+    }
+
+    let erledigt = false;
+    const beenden = async (speichern) => {
+        if (erledigt) return;
+        erledigt = true;
+        let wert = input.value;
+        input.remove();
+        span.style.display = '';
+
+        // Pause auf den erlaubten Bereich begrenzen (Tippen umgeht min/max)
+        if (feld === 'pause' && wert !== "") {
+            const minuten = Math.min(PAUSE_MAX_MINUTEN, Math.max(PAUSE_MIN_MINUTEN, parseInt(wert, 10)));
+            if (isNaN(minuten)) { updatePauseAnzeige(); return; }
+            wert = String(minuten);
         }
-    }
-});
 
+        if (speichern && wert !== "") {
+            showLoading(true);
+            try {
+                const data = await apiCall('setZeit', { feld: feld, wert: wert });
+                verarbeiteServerStatus(data);
+            } catch (err) {
+                verarbeiteFehler(err);
+            }
+        }
+    };
+
+    input.addEventListener('change', () => beenden(true));
+    input.addEventListener('blur', () => beenden(true));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') beenden(false);
+        if (e.key === 'Enter') beenden(true);
+    });
+}
+
+cardKommen.addEventListener('click', () => bearbeiteFeld(cardKommen, 'kommen'));
+cardPause.addEventListener('click', () => bearbeiteFeld(cardPause, 'pause'));
+cardGehen.addEventListener('click', () => bearbeiteFeld(cardGehen, 'gehen'));
+
+// =============================================================
+// Buttons (Stempeln wie bisher)
+// =============================================================
 btnKommen.addEventListener('click', async () => {
     showLoading(true);
     try {
@@ -418,39 +470,20 @@ function formatDauer(ms) {
     return `${stunden.toString().padStart(2, '0')}:${minuten.toString().padStart(2, '0')}:${sekunden.toString().padStart(2, '0')}`;
 }
 
-function berechneEffektivePauseMs() {
-    const jetzt = new Date();
-    if (state.realePauseMs > 0 || state.status === 'PAUSE') {
-        let p = state.realePauseMs;
-        if (state.status === 'PAUSE' && state.uiPauseStartZeit) {
-            p += (jetzt - state.uiPauseStartZeit);
-        }
-        return p;
+// Tatsächlich angefallene Pause (inkl. laufender Pause)
+function berechneAngezeigtePauseMs() {
+    let p = state.realePauseMs;
+    if (state.status === 'PAUSE' && state.uiPauseStartZeit) {
+        p += (new Date() - state.uiPauseStartZeit);
     }
-    return state.geplantePauseMinuten * 60 * 1000;
+    return p;
 }
 
-function updateBeendetAnzeige() {
-    const finalePauseMs = state.realePauseMs > 0
-        ? state.realePauseMs
-        : state.geplantePauseMinuten * 60 * 1000;
-    const endZeitpunkt = state.gehenZeit ? state.gehenZeit.getTime() : new Date().getTime();
-    const bruttoArbeitszeit = endZeitpunkt - state.kommenZeit.getTime();
-    const netto = bruttoArbeitszeit - finalePauseMs;
-    const ueberstunden = netto - SOLL_MILLISEKUNDEN;
-
-    lblRealeZeit.innerText = formatDauer(Math.max(0, netto)).substring(0, 5) + " Std";
-    lblPause.innerText = Math.round(finalePauseMs / 60000) + " Min";
-
-    if (ueberstunden >= 0) {
-        mainTimer.innerText = "+" + formatDauer(ueberstunden);
-        mainTimer.className = "time-box overtime";
-        mainTimer.style.color = "";
-    } else {
-        mainTimer.innerText = "-" + formatDauer(Math.abs(ueberstunden));
-        mainTimer.className = "time-box";
-        mainTimer.style.color = "var(--danger)";
+function berechneEffektivePauseMs() {
+    if (state.realePauseMs > 0 || state.status === 'PAUSE') {
+        return berechneAngezeigtePauseMs();
     }
+    return state.geplantePauseMinuten * 60 * 1000;
 }
 
 function berechneFeierabendUhrzeit() {
@@ -464,24 +497,57 @@ function updateFeierabendAnzeige() {
     lblFeierabend.innerText = fZeit ? formatUhrzeit(fZeit) : "--:--";
 }
 
+function updatePauseAnzeige() {
+    if (state.realePauseMs > 0 || state.status === 'PAUSE') {
+        lblPause.innerText = Math.round(berechneAngezeigtePauseMs() / 60000) + " Min";
+    } else {
+        lblPause.innerText = state.geplantePauseMinuten + " Min gepl.";
+    }
+}
+
+function updateBeendetAnzeige() {
+    const finalePauseMs = state.realePauseMs > 0
+        ? state.realePauseMs
+        : state.geplantePauseMinuten * 60 * 1000;
+    const endZeitpunkt = state.gehenZeit ? state.gehenZeit.getTime() : new Date().getTime();
+    const bruttoArbeitszeit = endZeitpunkt - state.kommenZeit.getTime();
+    const netto = bruttoArbeitszeit - finalePauseMs;
+    const ueberstunden = netto - SOLL_MILLISEKUNDEN;
+
+    lblRealeZeit.innerText = formatDauer(Math.max(0, netto)).substring(0, 5);
+
+    if (ueberstunden >= 0) {
+        mainTimer.innerText = "+" + formatDauer(ueberstunden);
+        mainTimer.className = "time-box overtime";
+        mainTimer.style.color = "";
+    } else {
+        mainTimer.innerText = "-" + formatDauer(Math.abs(ueberstunden));
+        mainTimer.className = "time-box";
+        mainTimer.style.color = "var(--danger)";
+    }
+}
+
 function updateUIForStatus() {
     btnKommen.className = "btn btn-start btn-disabled";
     btnPause.className = "btn btn-pause btn-disabled";
     btnGehen.className = "btn btn-stop btn-disabled";
     mainTimer.style.color = "";
 
+    lblKommen.innerText = formatUhrzeit(state.kommenZeit);
+    lblGehen.innerText = formatUhrzeit(state.gehenZeit);
+    updatePauseAnzeige();
+
     if (state.status === 'BEREIT') {
         btnKommen.className = "btn btn-start";
         statusBadge.className = "status-badge status-bereit";
         statusBadge.innerText = "Bereit für den Arbeitstag";
-        document.getElementById('sliderContainer').style.opacity = "1";
-        document.getElementById('sliderContainer').style.pointerEvents = "auto";
-        lblKommen.innerText = "--:--";
         mainTimer.innerText = formatDauer(SOLL_MILLISEKUNDEN);
+        mainTimer.classList.remove('overtime');
+        lblRealeZeit.innerText = "00:00";
         progressBar.style.width = "0%";
         progressBar.style.backgroundColor = "var(--link-color)";
         countdownLabel.innerText = "Verbleibende Sollzeit:";
-        countdownLabel.style.color = "#6c757d";
+        countdownLabel.style.color = "#7f8c8d";
     }
     else if (state.status === 'ARBEIT') {
         btnPause.className = "btn btn-pause";
@@ -489,11 +555,6 @@ function updateUIForStatus() {
         btnGehen.className = "btn btn-stop";
         statusBadge.className = "status-badge status-arbeit";
         statusBadge.innerText = "Zeiterfassung läuft...";
-        lblKommen.innerText = formatUhrzeit(state.kommenZeit);
-        if (state.realePauseMs > 0) {
-            document.getElementById('sliderContainer').style.opacity = "0.5";
-            document.getElementById('sliderContainer').style.pointerEvents = "none";
-        }
     }
     else if (state.status === 'PAUSE') {
         btnPause.className = "btn btn-pause";
@@ -501,8 +562,6 @@ function updateUIForStatus() {
         btnGehen.className = "btn btn-stop";
         statusBadge.className = "status-badge status-pause";
         statusBadge.innerText = "In der Mittagspause";
-        document.getElementById('sliderContainer').style.opacity = "0.5";
-        document.getElementById('sliderContainer').style.pointerEvents = "none";
     }
     else if (state.status === 'BEENDET') {
         statusBadge.className = "status-badge status-feierabend";
@@ -511,14 +570,6 @@ function updateUIForStatus() {
         mainTimer.classList.remove('overtime');
         progressBar.style.width = "100%";
         progressBar.style.backgroundColor = "#34495e";
-        if (state.kommenZeit) lblKommen.innerText = formatUhrzeit(state.kommenZeit);
-        if (state.realePauseMs > 0) {
-            document.getElementById('sliderContainer').style.opacity = "0.5";
-            document.getElementById('sliderContainer').style.pointerEvents = "none";
-        } else {
-            document.getElementById('sliderContainer').style.opacity = "1";
-            document.getElementById('sliderContainer').style.pointerEvents = "auto";
-        }
         updateBeendetAnzeige();
     }
     updateFeierabendAnzeige();
@@ -529,24 +580,13 @@ function updateTicker() {
 
     const jetzt = new Date();
 
-    // --- Pause-Anzeige ---
-    let anzeigeePauseMs;
-    if (state.realePauseMs > 0 || state.status === 'PAUSE') {
-        anzeigeePauseMs = state.realePauseMs;
-        if (state.status === 'PAUSE' && state.uiPauseStartZeit) {
-            anzeigeePauseMs += (jetzt - state.uiPauseStartZeit);
-        }
-        lblPause.innerText = Math.round(anzeigeePauseMs / 60000) + " Min";
-    } else {
-        anzeigeePauseMs = state.geplantePauseMinuten * 60 * 1000;
-        lblPause.innerText = state.geplantePauseMinuten + " Min (Schieber)";
-    }
-
-    // --- Reale Arbeitszeit ---
+    // --- Pause- und Arbeitszeit-Anzeige ---
+    updatePauseAnzeige();
+    const anzeigeePauseMs = berechneEffektivePauseMs();
     const nettoArbeitszeitMs = (state.realePauseMs > 0 || state.status === 'PAUSE')
         ? jetzt - state.kommenZeit - anzeigeePauseMs
         : jetzt - state.kommenZeit;
-    lblRealeZeit.innerText = formatDauer(Math.max(0, nettoArbeitszeitMs)).substring(0, 5) + " Std";
+    lblRealeZeit.innerText = formatDauer(Math.max(0, nettoArbeitszeitMs)).substring(0, 5);
 
     // --- Feierabend-Countdown ---
     updateFeierabendAnzeige();
@@ -562,7 +602,7 @@ function updateTicker() {
 
     if (restZeitMs > 0) {
         countdownLabel.innerText = "Zeit bis Feierabend:";
-        countdownLabel.style.color = "#6c757d";
+        countdownLabel.style.color = "#7f8c8d";
         mainTimer.innerText = formatDauer(restZeitMs);
         mainTimer.classList.remove('overtime');
         progressBar.style.backgroundColor = "var(--link-color)";
