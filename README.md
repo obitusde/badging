@@ -8,51 +8,50 @@ Reminders are **not** driven by the app being open. A time-driven trigger inside
 
 Flow: `Code.gs` (5-min trigger) → FCM → your phone's push service → `service-worker.js`'s `push` listener → notification shown.
 
-There are five reminder types. Two are fixed clock-time reminders ("did you forget to X by time Y"), and two are **milestone-based** — they fire once at each listed threshold, not on a repeating interval:
+Reminders are organised as **time windows**. Inside a window you get a reminder every 30 minutes, but **only for as long as the action is actually still pending** — clock in, and the check-in reminder stops immediately.
 
-| Reminder | Fires when | Notification |
+| Window | Fires when | Notification |
 |---|---|---|
-| Morning | You haven't clocked in by a set time (off by default) | "Stempeln nicht vergessen!" |
-| Lunch forgotten | You're clocked in ("ARBEIT") past a set time with no break started yet | "Mittagspause vergessen?" |
-| Break duration | Your break ("PAUSE") has lasted 30 min, then again at 60 min | "Pause dauert schon 30/60 Minuten" |
-| Feierabend | Milestones at 0 (Sollarbeitszeit reached), +30, +60 min overtime | "FEIERABEND!" / "30/60 Minuten Überstunden" |
+| 09:00–11:00 | Not clocked in yet | "Einstempeln nicht vergessen!" |
+| 11:30–13:30 | Working, no break taken yet | "Mittagspause nicht vergessen!" + time left to Feierabend |
+| 11:30–13:30 | Currently on break | "Pause beenden?" + how long you've been on break |
+| 16:00–22:00 | Still clocked in (working or on break) | "Ausstempeln nicht vergessen!" + time left / overtime |
 
-Fixed-time reminders (morning, lunch-forgotten) reset at midnight. Milestone reminders (break duration, Feierabend) each fire exactly once per occurrence: break-duration milestones reset every time a new break starts, Feierabend milestones reset on a fresh clock-in (or at midnight). After the last configured milestone (60 min), no further reminders fire for that break/overtime period.
+Notification bodies carry live numbers rather than fixed text: `Noch 2 Std 15 Min bis Feierabend.` while you're under your target hours, `Du hast bereits 40 Min Überstunden.` once you're past it, and `Du bist seit 35 Minuten in der Pause.` during a break.
+
+All "already sent" markers reset at midnight and on a fresh clock-in.
 
 ## How to change reminder behavior
 
 All reminder settings live in **`Code.gs`**, near the top, in the "Erinnerungen" section:
 
 ```js
-const ERINNERUNGEN_AM_WOCHENENDE = false;   // fire reminders on Sat/Sun?
+const ERINNERUNGEN_AM_WOCHENENDE = false;      // fire reminders on Sat/Sun?
+const ERINNERUNG_WIEDERHOLUNG_MINUTEN = 30;    // repeat gap inside every window
 
-const ERINNERUNG_MORGENS_AKTIV = false;     // morning reminder on/off
-const ERINNERUNG_MORGENS_STUNDE = 9;
-const ERINNERUNG_MORGENS_MINUTE = 0;
+const ERINNERUNG_KOMMEN_AKTIV = true;          // "you haven't clocked in"
+const ERINNERUNG_KOMMEN_VON = "09:00";
+const ERINNERUNG_KOMMEN_BIS = "11:00";
 
-const ERINNERUNG_MITTAG_VERGESSEN_AKTIV = true;   // lunch-forgotten reminder on/off
-const ERINNERUNG_MITTAG_VERGESSEN_STUNDE = 12;
-const ERINNERUNG_MITTAG_VERGESSEN_MINUTE = 30;
+const ERINNERUNG_PAUSE_AKTIV = true;           // break start + break end
+const ERINNERUNG_PAUSE_VON = "11:30";
+const ERINNERUNG_PAUSE_BIS = "13:30";
 
-const ERINNERUNG_PAUSE_DAUER_AKTIV = true;                        // break-duration reminder on/off
-const ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN = [30, 60];     // minutes into the break
-
-const ERINNERUNG_FEIERABEND_AKTIV = true;                         // Feierabend reminder on/off
-const ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN = [0, 30, 60];   // 0 = Soll reached, then overtime minutes
+const ERINNERUNG_GEHEN_AKTIV = true;           // "you haven't clocked out"
+const ERINNERUNG_GEHEN_VON = "16:00";
+const ERINNERUNG_GEHEN_BIS = "22:00";
 ```
 
-The two milestone arrays (`ERINNERUNG_PAUSE_DAUER_MEILENSTEINE_MINUTEN`, `ERINNERUNG_FEIERABEND_MEILENSTEINE_MINUTEN`) can have values added or removed freely — e.g. add `90` to get a third break-duration nudge, or `120` for a 2-hour-overtime alert. Each value needs no code change to work; it just won't have custom wording (see below) unless you add it.
+To move a window, edit its `_VON` / `_BIS` times. To silence one entirely, set its `_AKTIV` to `false`. To be nagged more or less often, change `ERINNERUNG_WIEDERHOLUNG_MINUTEN`. Wording lives in the `sendPush_(...)` calls inside `checkAndNotify()` just below.
 
-Custom wording per milestone lives in two lookup objects further down in `Code.gs`, `PAUSE_DAUER_TEXTE_` and `FEIERABEND_MEILENSTEIN_TEXTE_`:
+Note the windows are checked by a trigger that runs every 5 minutes, so a reminder lands at the first 5-minute tick inside the window, not exactly on the minute.
 
-```js
-const PAUSE_DAUER_TEXTE_ = {
-  30: { title: 'Pause dauert schon 30 Minuten', body: 'Denk dran, rechtzeitig weiterzuarbeiten.' },
-  60: { title: 'Pause dauert schon 60 Minuten', body: 'Das ist schon eine lange Pause — bitte zurückstempeln.' }
-};
-```
+## Entering times manually
 
-Any milestone value without an entry here falls back to a generic auto-generated message, so adding a new milestone number to the array above always works even before you write custom text for it.
+Tap the **Kommen**, **Pause**, or **Gehen** card to type a value instead of using the buttons — useful when you forgot to stamp, or stamped at the wrong time. The stamp buttons keep working exactly as before; both paths write to the same state.
+
+- **Kommen / Gehen** open a time picker. Entering a Kommen time on a fresh day also starts the day (status → working); entering a Gehen time ends it (status → finished) and closes a running break.
+- **Pause** takes minutes, bounded to **30–120** (`PAUSE_MIN_MINUTEN` / `PAUSE_MAX_MINUTEN`, set in both `index.html` and `Code.gs`). Before you've taken a real break this sets the *planned* break used for the Feierabend estimate; once a break has actually run, it overwrites the *actual* recorded break.
 
 **⚠️ After editing `Code.gs`, you must redeploy — saving alone is not enough:**
 
