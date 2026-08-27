@@ -61,12 +61,15 @@
         .btn-mini { flex: 1; background-color: transparent; border: none; color: #bdc3c7; font-size: 11px; cursor: pointer; text-decoration: underline; padding: 2px; }
 
         .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.85); display:flex; justify-content:center; align-items:center; z-index:100; font-weight:bold; font-size:14px; color: var(--primary); }
+        /* position:fixed — beeinflusst die Seitenhöhe nicht */
+        .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; background: var(--primary); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.25); max-width: 90%; text-align: center; }
         .config-warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 12px; line-height: 1.4; }
     </style>
 </head>
 <body>
 
 <div id="loadingOverlay" class="overlay">⏳ Synchronisiere...</div>
+<div id="toast" class="toast" style="display:none"></div>
 
 <div class="container">
     <h1>Royal Oak Arbeitszeit</h1>
@@ -228,6 +231,10 @@ window.addEventListener('load', async () => {
     await initialisiereZustandVonServer();
     setInterval(updateTicker, 1000);
 
+    // NFC-Tag / Verknüpfung: ?stempeln=kommen|pause|gehen
+    const autoStempel = new URLSearchParams(window.location.search).get('stempeln');
+    if (autoStempel) await fuehreAutoStempelAus(autoStempel);
+
     if ('serviceWorker' in navigator) {
         try {
             await navigator.serviceWorker.register('service-worker.js');
@@ -292,6 +299,53 @@ async function registriereFcmToken() {
 
 function showLoading(show) {
     loadingOverlay.style.display = show ? 'flex' : 'none';
+}
+
+let toastTimer = null;
+function zeigeHinweis(text) {
+    const toast = document.getElementById('toast');
+    toast.innerText = text;
+    toast.style.display = 'block';
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+}
+
+// =============================================================
+// Automatisches Stempeln per URL — für NFC-Tags und Verknüpfungen
+// Aufruf z. B.: .../badging/?stempeln=kommen
+// Gestempelt wird nur, wenn es zum aktuellen Status passt. Ein
+// zweites Antippen desselben Tags macht also nichts kaputt.
+// =============================================================
+async function fuehreAutoStempelAus(wunsch) {
+    // Parameter sofort aus der URL entfernen, damit ein Reload
+    // (oder Zurück-Taste) nicht ein zweites Mal stempelt.
+    history.replaceState(null, '', window.location.pathname);
+
+    let typ = null;
+    let bestaetigung = '';
+    if (wunsch === 'kommen' && state.status === 'BEREIT') {
+        typ = 'KOMMEN'; bestaetigung = '✅ Eingestempelt';
+    } else if (wunsch === 'gehen' && (state.status === 'ARBEIT' || state.status === 'PAUSE')) {
+        typ = 'GEHEN'; bestaetigung = '✅ Ausgestempelt';
+    } else if (wunsch === 'pause' && state.status === 'ARBEIT') {
+        typ = 'PAUSE_START'; bestaetigung = '☕ Pause gestartet';
+    } else if (wunsch === 'pause' && state.status === 'PAUSE') {
+        typ = 'PAUSE_ENDE'; bestaetigung = '✅ Pause beendet';
+    }
+
+    if (!typ) {
+        zeigeHinweis('Nichts zu tun — bereits erledigt.');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const data = await apiCall('stempeln', { type: typ, pause: state.geplantePauseMinuten });
+        verarbeiteServerStatus(data);
+        zeigeHinweis(bestaetigung);
+    } catch (err) {
+        verarbeiteFehler(err);
+    }
 }
 
 function verarbeiteFehler(err) {

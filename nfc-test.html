@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>NFC-Test — Arbeitszeit</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #f8f9fa; color: #2c3e50; padding: 14px; }
+        h1 { font-size: 18px; margin-bottom: 10px; }
+        p { font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; color: #fff; background: #2ecc71; margin-bottom: 12px; }
+        #log { background: #fff; border: 1px solid #dee2e6; border-radius: 10px; padding: 10px; font-size: 12px; font-family: monospace; white-space: pre-wrap; word-break: break-all; min-height: 220px; }
+        .hint { background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+
+<h1>NFC-Test</h1>
+
+<div class="hint">
+    Prüft, ob dein Firmen-Badge mit Web NFC lesbar ist.
+    Nur Chrome auf Android, nur im Vordergrund.
+</div>
+
+<p>
+    <b>1.</b> „Scan starten" tippen und erlauben.<br>
+    <b>2.</b> Dein <b>Badge</b> (die Karte selbst, nicht das Lesegerät)
+    an die Rückseite des Handys halten.<br>
+    <b>3.</b> Ergebnis unten ablesen.
+</p>
+
+<button id="btnScan">Scan starten</button>
+
+<div id="log">Noch nicht gestartet.</div>
+
+<script>
+const logEl = document.getElementById('log');
+let zeilen = [];
+
+function log(text) {
+    const zeit = new Date().toLocaleTimeString();
+    zeilen.unshift('[' + zeit + '] ' + text);
+    logEl.innerText = zeilen.join('\n');
+}
+
+document.getElementById('btnScan').addEventListener('click', async () => {
+    if (!('NDEFReader' in window)) {
+        log('❌ Web NFC wird von diesem Browser NICHT unterstützt.\n   (Nötig: Chrome auf Android, Seite über HTTPS)');
+        return;
+    }
+
+    log('Web NFC ist verfügbar. Starte Scan...');
+    try {
+        const reader = new NDEFReader();
+        await reader.scan();
+        log('✅ Scan läuft. Jetzt Badge ans Handy halten...');
+
+        reader.onreading = (event) => {
+            log('✅✅ GELESEN!\n'
+              + '   serialNumber (UID): ' + (event.serialNumber || '(keine)') + '\n'
+              + '   NDEF-Records: ' + (event.message ? event.message.records.length : 0));
+            if (event.message) {
+                for (const r of event.message.records) {
+                    log('   → recordType=' + r.recordType + ' mediaType=' + (r.mediaType || '-'));
+                }
+            }
+            log('   ==> Dieses Tag ist nutzbar.');
+        };
+
+        reader.onreadingerror = () => {
+            log('⚠️ Tag erkannt, aber NICHT lesbar.\n'
+              + '   ==> Kein NDEF-Tag (typisch für Firmen-Badges).\n'
+              + '   ==> Badge lässt sich so nicht als Auslöser nutzen.');
+        };
+    } catch (err) {
+        log('❌ Fehler: ' + err.name + ' — ' + err.message);
+        if (err.name === 'NotAllowedError') log('   ==> Berechtigung abgelehnt, oder NFC ist aus.');
+        if (err.name === 'NotSupportedError') log('   ==> Keine NFC-Hardware / nicht unterstützt.');
+    }
+});
+</script>
+
+</body>
+</html>
