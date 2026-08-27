@@ -65,6 +65,27 @@ Saving the script updates what the 5-minute trigger runs (so `checkAndNotify` pi
 - **`Code.gs` only** (reminder times, wording, milestones, etc.): no. It's pure backend — the phone never caches anything from it (the service worker explicitly never caches `script.google.com` requests). Redeploying is enough; effective immediately.
 - **`index.html` or `service-worker.js`**: reload the app once. Thanks to the network-first fetch strategy, a normal reload picks up changes automatically — the previous "clear all site data" workaround should only be needed again if something is genuinely stuck.
 
+## Stamping via NFC tag or home-screen shortcut
+
+Opening the app with a `?stempeln=` parameter stamps immediately on load, no tapping required:
+
+| URL | Effect |
+|---|---|
+| `…/badging/?stempeln=kommen` | clock in |
+| `…/badging/?stempeln=pause` | start break, or end it if one is running |
+| `…/badging/?stempeln=gehen` | clock out |
+
+It only acts when the action fits the current status, so tapping the same tag twice is a harmless no-op ("Nichts zu tun — bereits erledigt"). The parameter is stripped from the URL right away, so a reload or the back button won't stamp a second time.
+
+**To set up an NFC tag:** buy a blank NDEF tag (NTAG213 is fine, cents each), and use any tag writer app (e.g. "NFC Tools") to write a **URL record** containing e.g. `https://obitusde.github.io/badging/?stempeln=kommen`. Stick it wherever it's convenient — desk, badge holder, door frame. Android opens URL tags without the app running, so an unlocked phone held to the tag clocks you in by itself.
+
+The same URLs work as home-screen shortcuts (Chrome → ⋮ → "Zum Startbildschirm hinzufügen") if you'd rather not use NFC at all.
+
+### What is *not* possible
+
+- **Using the work badge reader as the trigger.** Holding the phone to a reader makes the phone detect the reader's field — that's Host Card Emulation territory, native-Android-only, and entirely inaccessible to a web page.
+- **Reading a corporate access badge**, most likely. Web NFC only reads NDEF-formatted tags, and access badges (MIFARE DESFire, iCLASS, LEGIC) generally aren't. `nfc-test.html` in this repo settles it for a specific card: open it on the phone, start the scan, hold the card (not the reader) to the phone's back — it reports the UID and NDEF records if readable, or a clear "not NDEF" result if not.
+
 ## First-time setup (already done, for reference)
 
 - A Firebase project (`badging-e9359`) provides the push channel. Its Web config lives in both `index.html` (`FIREBASE_CONFIG`, `FIREBASE_VAPID_KEY`) and `service-worker.js` — kept in sync manually since a service worker can't read the page's JS.
