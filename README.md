@@ -19,6 +19,8 @@ Reminders are organised as **time windows**. Inside a window you get a reminder 
 
 Notification bodies carry live numbers rather than fixed text: `Noch 2 Std 15 Min bis Feierabend.` while you're under your target hours, `Du hast bereits 40 Min Überstunden.` once you're past it, and `Du bist seit 35 Minuten in der Pause.` during a break.
 
+There's also a **one-shot Feierabend push**, separate from the time-window table above: the moment your worked time (Kommen + Soll-Stunden + Pause) is actually reached — whatever time of day that is, including before 16:00 — you get "Feierabend! 🎉" once. It only fires while still clocked in (working or on break) and won't repeat until the next clock-in.
+
 All "already sent" markers reset at midnight and on a fresh clock-in.
 
 ## How to change reminder behavior
