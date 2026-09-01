@@ -51,6 +51,11 @@ const ERINNERUNG_GEHEN_AKTIV = true;
 const ERINNERUNG_GEHEN_VON = "16:00";
 const ERINNERUNG_GEHEN_BIS = "22:00";
 
+// 4. Feierabend — einmalige Push genau dann, wenn die Soll-Stundenzahl
+// erreicht ist (unabhängig vom Ausstempeln-Zeitfenster oben). Feuert
+// höchstens einmal pro Tag.
+const ERINNERUNG_FEIERABEND_AKTIV = true;
+
 // =============================================================
 // JSON API entry point — handles ALL requests from the PWA
 // =============================================================
@@ -423,6 +428,25 @@ function checkAndNotify() {
     sendPush_('Ausstempeln nicht vergessen!', restzeitText_(status));
     merkeGesendet_(props, 'GEHEN');
   }
+
+  // --- 4. Feierabend erreicht (einmalig, unabhängig vom Zeitfenster oben) ---
+  if (ERINNERUNG_FEIERABEND_AKTIV
+      && (status.status === 'ARBEIT' || status.status === 'PAUSE')
+      && status.kommenZeit
+      && jetzt.getTime() >= feierabendZeit_(status)
+      && !props.getProperty('LAST_SENT_FEIERABEND')) {
+    sendPush_('Feierabend! 🎉', 'Du hast deine Arbeitszeit von ' + SOLL_STUNDEN + ' Std ' + SOLL_MINUTEN + ' Min erreicht.');
+    merkeGesendet_(props, 'FEIERABEND');
+  }
+}
+
+// Zeitpunkt (ms), an dem die Soll-Stundenzahl erreicht ist — gleiche
+// Rechnung wie restzeitText_, nur als Zeitstempel statt als Text.
+function feierabendZeit_(status) {
+  const sollMs = (SOLL_STUNDEN * 60 + SOLL_MINUTEN) * 60 * 1000;
+  let pauseMs = aktuellePauseMs_(status);
+  if (pauseMs === 0) pauseMs = (status.geplantePauseMinuten || 0) * 60000;
+  return status.kommenZeit + sollMs + pauseMs;
 }
 
 // --- Hilfsfunktionen für die Erinnerungs-Fenster ---
@@ -477,7 +501,7 @@ function formatDauerKurz_(ms) {
 
 function clearReminderFlags_() {
   const props = PropertiesService.getScriptProperties();
-  ['KOMMEN', 'PAUSE_START', 'PAUSE_ENDE', 'GEHEN'].forEach(function (key) {
+  ['KOMMEN', 'PAUSE_START', 'PAUSE_ENDE', 'GEHEN', 'FEIERABEND'].forEach(function (key) {
     props.deleteProperty('LAST_SENT_' + key);
   });
 }
