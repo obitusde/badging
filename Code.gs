@@ -362,9 +362,40 @@ function sendPush_(title, body) {
   const code = response.getResponseCode();
   const text = response.getContentText();
   if (code !== 200) {
+    // "UNREGISTERED" heißt: das Token ist endgültig tot (Rotation,
+    // App-Daten gelöscht, Deinstallation …) — erneutes Senden mit
+    // demselben Token würde nur denselben Fehler alle 5 Minuten
+    // stumm ins Fehlerlog schreiben. Stattdessen Token löschen und
+    // einmalig per Mail Bescheid geben, damit die App neu geöffnet
+    // und ein frisches Token registriert werden kann.
+    if (text.indexOf('UNREGISTERED') !== -1) {
+      props.deleteProperty('FCM_TOKEN');
+      benachrichtigeTokenAbgelaufen_();
+      return { skipped: true, reason: 'FCM_TOKEN war ungueltig (UNREGISTERED) und wurde geloescht.' };
+    }
     throw new Error('FCM-Versand fehlgeschlagen (' + code + '): ' + text);
   }
   return { ok: true, fcmResponse: text };
+}
+
+// Einmal pro Tag eine Mail, falls das Push-Token abgelaufen ist —
+// sonst würde man nie merken, dass Erinnerungen lautlos ausbleiben.
+function benachrichtigeTokenAbgelaufen_() {
+  const props = PropertiesService.getScriptProperties();
+  const heute = new Date().toDateString();
+  if (props.getProperty('TOKEN_EXPIRED_MAIL_TAG') === heute) return;
+  props.setProperty('TOKEN_EXPIRED_MAIL_TAG', heute);
+  try {
+    MailApp.sendEmail(
+      Session.getEffectiveUser().getEmail(),
+      'Arbeitszeit: Push-Benachrichtigungen deaktiviert',
+      'Das Push-Token ist abgelaufen (FCM meldet "Device unregistered"). ' +
+      'Erinnerungen bleiben bis dahin aus. Einmal die Royal-Oak-Arbeitszeit-App ' +
+      'öffnen, damit sich automatisch ein neues Token registriert.'
+    );
+  } catch (e) {
+    // Mail-Versand ist best-effort — ein Fehler hier soll checkAndNotify nicht abbrechen.
+  }
 }
 
 // =============================================================
