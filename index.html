@@ -205,18 +205,32 @@ async function apiCall(action, extraParams = {}) {
     for (const [k, v] of Object.entries(extraParams)) {
         url.searchParams.set(k, v);
     }
-    const response = await fetch(url.toString(), {
-        method: 'GET',
-        redirect: 'follow'
-    });
-    if (!response.ok) {
-        throw new Error("HTTP " + response.status);
+
+    // Der /exec-Endpunkt von Apps Script liefert gelegentlich einen
+    // transienten 404 ("Datei kann derzeit nicht geöffnet werden"),
+    // unabhängig vom eigenen Code — kurz erneut versuchen statt sofort
+    // eine Fehlermeldung zu zeigen.
+    let letzterFehler;
+    for (let versuch = 0; versuch < 3; versuch++) {
+        if (versuch > 0) await new Promise(r => setTimeout(r, 500 * versuch));
+        try {
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                redirect: 'follow'
+            });
+            if (!response.ok) {
+                throw new Error("HTTP " + response.status);
+            }
+            const data = await response.json();
+            if (data && data.error) {
+                throw new Error(data.error);
+            }
+            return data;
+        } catch (err) {
+            letzterFehler = err;
+        }
     }
-    const data = await response.json();
-    if (data && data.error) {
-        throw new Error(data.error);
-    }
-    return data;
+    throw letzterFehler;
 }
 
 // =============================================================
